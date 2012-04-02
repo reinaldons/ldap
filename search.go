@@ -6,9 +6,9 @@
 package ldap
 
 import (
-	"github.com/reinaldons/asn1-ber"
+	"errors"
 	"fmt"
-	"os"
+	"github.com/reinaldons/asn1-ber"
 )
 
 const (
@@ -84,11 +84,11 @@ type SearchRequest struct {
 }
 
 func NewSearchRequest(BaseDN string,
-Scope, DerefAliases, SizeLimit, TimeLimit int,
-TypesOnly bool,
-Filter string,
-Attributes []string,
-Controls []Control) *SearchRequest {
+	Scope, DerefAliases, SizeLimit, TimeLimit int,
+	TypesOnly bool,
+	Filter string,
+	Attributes []string,
+	Controls []Control) *SearchRequest {
 	return &SearchRequest{
 		BaseDN:       BaseDN,
 		Scope:        Scope,
@@ -119,7 +119,7 @@ func (l *Conn) SearchWithPaging(SearchRequest *SearchRequest, PagingSize uint32)
 			return SearchResult, err
 		}
 		if result == nil {
-			return SearchResult, NewError(ErrorNetwork, os.NewError("Packet not received"))
+			return SearchResult, NewError(ErrorNetwork, errors.New("Packet not received"))
 		}
 
 		for _, entry := range result.Entries {
@@ -202,7 +202,7 @@ func (l *Conn) Search(SearchRequest *SearchRequest) (*SearchResult, *Error) {
 		return nil, err
 	}
 	if channel == nil {
-		return nil, NewError(ErrorNetwork, os.NewError("Could not send message"))
+		return nil, NewError(ErrorNetwork, errors.New("Could not send message"))
 	}
 	defer l.finishMessage(messageID)
 
@@ -221,7 +221,7 @@ func (l *Conn) Search(SearchRequest *SearchRequest) (*SearchResult, *Error) {
 			fmt.Printf("%d: got response %p\n", messageID, packet)
 		}
 		if packet == nil {
-			return nil, NewError(ErrorNetwork, os.NewError("Could not retrieve message"))
+			return nil, NewError(ErrorNetwork, errors.New("Could not retrieve message"))
 		}
 
 		if l.Debug {
@@ -247,7 +247,7 @@ func (l *Conn) Search(SearchRequest *SearchRequest) (*SearchResult, *Error) {
 		case 5:
 			result_code, result_description := getLDAPResultCode(packet)
 			if result_code != 0 {
-				return result, NewError(result_code, os.NewError(result_description))
+				return result, NewError(result_code, errors.New(result_description))
 			}
 			if len(packet.Children) == 3 {
 				for _, child := range packet.Children[2].Children {

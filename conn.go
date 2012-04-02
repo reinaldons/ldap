@@ -6,11 +6,11 @@
 package ldap
 
 import (
-	"github.com/reinaldons/asn1-ber"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"github.com/reinaldons/asn1-ber"
 	"net"
-	"os"
 	"sync"
 )
 
@@ -121,7 +121,7 @@ func (l *Conn) startTLS() *Error {
 	messageID := l.nextMessageID()
 
 	if l.isSSL {
-		return NewError(ErrorNetwork, os.NewError("Already encrypted"))
+		return NewError(ErrorNetwork, errors.New("Already encrypted"))
 	}
 
 	packet := ber.Encode(ber.ClassUniversal, ber.TypeConstructed, ber.TagSequence, nil, "LDAP Request")
@@ -178,7 +178,7 @@ func (l *Conn) sendMessage(p *ber.Packet) (out chan *ber.Packet, err *Error) {
 	out = make(chan *ber.Packet)
 
 	if l.chanProcessMessage == nil {
-		err = NewError(ErrorNetwork, os.NewError("Connection closed"))
+		err = NewError(ErrorNetwork, errors.New("Connection closed"))
 		return
 	}
 	message_packet := &messagePacket{Op: MessageRequest, MessageID: message_id, Packet: p, Channel: out}
@@ -220,7 +220,7 @@ func (l *Conn) processMessages() {
 					n, err := l.conn.Write(buf)
 					if err != nil {
 						if l.Debug {
-							fmt.Printf("Error Sending Message: %s\n", err.String())
+							fmt.Printf("Error Sending Message: %s\n", err.Error())
 						}
 						return
 					}
@@ -247,7 +247,7 @@ func (l *Conn) processMessages() {
 				if l.Debug {
 					fmt.Printf("Finished message %d\n", message_packet.MessageID)
 				}
-				l.chanResults[message_packet.MessageID] = nil, false
+				delete(l.chanResults, message_packet.MessageID)
 			}
 		}
 	}
@@ -260,7 +260,7 @@ func (l *Conn) closeAllChannels() {
 			fmt.Printf("Closing channel for MessageID %d\n", MessageID)
 		}
 		close(Channel)
-		l.chanResults[MessageID] = nil, false
+		delete(l.chanResults, MessageID)
 	}
 	close(l.chanMessageID)
 	l.chanMessageID = nil
@@ -280,7 +280,7 @@ func (l *Conn) reader() {
 		p, err := ber.ReadPacket(l.conn)
 		if err != nil {
 			if l.Debug {
-				fmt.Printf("ldap.reader: %s\n", err.String())
+				fmt.Printf("ldap.reader: %s\n", err.Error())
 			}
 			return
 		}
